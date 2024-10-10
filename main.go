@@ -102,22 +102,19 @@ func shellContainer(container Container) {
 
 }
 
-func main() {
+func getRunningContainers() ([]Container){
 
-	args := os.Args
+  	cmd := exec.Command("docker", "ps", "--format", "{{.ID}} {{.Names}}")
 
-	cmd := exec.Command("docker", "ps", "--format", "{{.ID}} {{.Names}}")
-
+	var containers []Container
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
 	err := cmd.Run()
 	if err != nil {
 		fmt.Println("Error:", err)
-		return
+		return containers
 	}
-
-	var containers []Container
 
 	cmdReturn := strings.Split(out.String(), "\n")
 	for _, item := range cmdReturn {
@@ -130,6 +127,16 @@ func main() {
 			})
 		}
 	}
+
+  return containers
+
+}
+
+func main() {
+
+	args := os.Args
+
+	var containers []Container = getRunningContainers()
 
 	switch args[1] {
 	case "-h":
