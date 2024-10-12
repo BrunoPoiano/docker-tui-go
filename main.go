@@ -28,6 +28,7 @@ type model struct {
 	item_selected Items
 	action        string
 	loading       bool
+	logs          string
 
 	// lipgloss styles and dimention
 	width  int
@@ -98,6 +99,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			//Send user to menu lista
 		case "m":
+			m.cursor = 0
 			m.action = ""
 			m.item_selected = Items{}
 			m.items = getMenuItems()
@@ -106,19 +108,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// the container selected
 		case "enter", " ":
 
-			m.cursor = 0
 			switch m.items[m.cursor].id {
 			case "shell", "logs", "stop", "list":
+				m.cursor = 0
 				m.action = m.items[m.cursor].id
 				m.items = getRunningItems()
-      default:
+			default:
 				m.item_selected = m.items[m.cursor]
 			}
 		}
 
-    if(m.action == "shell" && m.item_selected != Items{}){
-      shellItems(m.item_selected)
-    }
+		if m.action == "logs" && m.item_selected != (Items{}) {
+			m.logs = "" // Reset logs
+			m.loading = true
+			// Fetch the logs asynchronously
+			go func() {
+				m.logs = fetchLogs(m.item_selected)
+				m.loading = false
+			}()
+		}
 	}
 
 	// Return the updated model to the Bubble Tea runtime for processing.
@@ -141,23 +149,27 @@ func (m model) View() string {
 	content += fmt.Sprintf("action selected %s \n\n", m.action)
 	content += fmt.Sprintf("Items selected %s \n\n", m.item_selected.name)
 
-	// Iterate over our choices
-	for i, choice := range m.items {
+	if m.action == "logs" && m.item_selected != (Items{}) {
+		content += m.logs
+	} else {
 
-		// Is the cursor pointing at this choice?
-		cursor := " " // no cursor
-		if m.cursor == i {
-			cursor = ">" // cursor!
+		// Iterate over our choices
+		for i, choice := range m.items {
+
+			// Is the cursor pointing at this choice?
+			cursor := " " // no cursor
+			if m.cursor == i {
+				cursor = ">" // cursor!
+			}
+
+			// Render the row
+			content += fmt.Sprintf("%s %s\n", cursor, choice.name)
 		}
 
-		// Render the row
-		content += fmt.Sprintf("%s %s\n", cursor, choice.name)
+		// The footer
+		content += "\nPress q to quit.\n"
+
 	}
-
-	// The footer
-	content += "\nPress q to quit.\n"
-
-	// Send the UI for rendering
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder(), true, true, true, true).
@@ -231,34 +243,18 @@ func commandItems(container Items, command string) {
 	fmt.Println(out.String())
 }
 
-func logsItems(container Items) {
-	cmd := exec.Command("docker", "logs", "--follow", container.id)
+func fetchLogs(container Items) string {
+	cmd := exec.Command("docker", "logs", container.id)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
 
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-signals
-		if err := cmd.Process.Signal(syscall.SIGINT); err != nil {
-			fmt.Println("Error sending signal to Docker process:", err)
-		}
-	}()
-
-	fmt.Println("Running Command")
-
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("Error starting Docker: %s\n", err)
-		return
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Sprintf("Error fetching logs: %v", err)
 	}
 
-	if err := cmd.Wait(); err != nil {
-		fmt.Printf("Error waiting for Docker: %s\n", err)
-	}
-
+	return out.String()
 }
 
 func shellItems(container Items) {
