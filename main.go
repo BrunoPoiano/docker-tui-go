@@ -110,9 +110,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			switch m.items[m.cursor].id {
 			case "shell", "logs", "stop", "list":
-				m.cursor = 0
 				m.action = m.items[m.cursor].id
 				m.items = getRunningItems()
+        m.cursor = 0
 			default:
 				m.item_selected = m.items[m.cursor]
 			}
