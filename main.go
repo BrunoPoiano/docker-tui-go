@@ -17,22 +17,23 @@ import (
 	"syscall"
 )
 
-type model struct {
-	items         []Container // items on the to-do list
-	cursor        int         // which to-do list item our cursor is pointing at
-	item_selected Container
-
-	// lipgloss styles and dimentions
-	width  int
-	height int
-	styles *Styles
-}
-
-type Container struct {
+type Items struct {
 	id   string
 	name string
 }
 
+type model struct {
+	items         []Items // items on the to-do list
+	cursor        int     // which to-do list item our cursor is pointing at
+	item_selected Items
+	action        string
+	loading       bool
+
+	// lipgloss styles and dimention
+	width  int
+	height int
+	styles *Styles
+}
 type Styles struct {
 	BorderColor lipgloss.Color
 }
@@ -44,20 +45,22 @@ func DefaultStyles() *Styles {
 	return s
 }
 
-func initialModel(containers []Container) model {
+func getMenuItems() []Items {
 
-	// get all the current running containers
-	styles := DefaultStyles()
-	return model{items: containers, styles: styles}
-}
-
-/*
-func initialModel() model {
-	return model{
-		items: getRunningContainers(),
+	menu := []Items{
+		{id: "shell", name: "Shell"},
+		{id: "logs", name: "Logs"},
+		{id: "stop", name: "Stop"},
+		{id: "list", name: "List"},
 	}
+
+	return menu
 }
-*/
+
+func initialModel(items []Items) model {
+	styles := DefaultStyles()
+	return model{items: items, styles: styles}
+}
 
 func (m model) Init() tea.Cmd {
 	// Just return `nil`, which means "no I/O right now, please."
@@ -93,11 +96,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
+			//Send user to menu lista
+		case "m":
+			m.action = ""
+			m.item_selected = Items{}
+			m.items = getMenuItems()
+
 		// The "enter" key and the spacebar toggle
 		// the container selected
 		case "enter", " ":
-			m.item_selected = m.items[m.cursor]
+
+			m.cursor = 0
+			switch m.items[m.cursor].id {
+			case "shell", "logs", "stop", "list":
+				m.action = m.items[m.cursor].id
+				m.items = getRunningItems()
+      default:
+				m.item_selected = m.items[m.cursor]
+			}
 		}
+
+    if(m.action == "shell" && m.item_selected != Items{}){
+      shellItems(m.item_selected)
+    }
 	}
 
 	// Return the updated model to the Bubble Tea runtime for processing.
@@ -117,7 +138,8 @@ func (m model) View() string {
 
 	content := fmt.Sprintf("%s%s\n\n", strings.Repeat(" ", padding), header)
 
-	content += fmt.Sprintf("Container selected %s \n\n", m.item_selected.name)
+	content += fmt.Sprintf("action selected %s \n\n", m.action)
+	content += fmt.Sprintf("Items selected %s \n\n", m.item_selected.name)
 
 	// Iterate over our choices
 	for i, choice := range m.items {
@@ -149,53 +171,21 @@ func (m model) View() string {
 
 func main() {
 
-	containers := getRunningContainers()
+	//containers := getRunningItemss()
+	menu := getMenuItems()
 
-	p := tea.NewProgram(initialModel(containers), tea.WithAltScreen())
+	p := tea.NewProgram(initialModel(menu), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
-	/*
-		args := os.Args
-
-		var containers []Container = getRunningContainers()
-
-		switch args[1] {
-		case "-h":
-			fmt.Printf("shell - to conect to a container \n")
-			fmt.Printf("logs  - to check container logs \n")
-			fmt.Printf("stop  - to stop a container \n")
-			fmt.Printf("list  - to list running containers \n")
-
-		case "stop":
-			commandContainer(containers[0], "stop")
-
-		case "restart":
-			commandContainer(containers[0], "restart")
-
-		case "shell":
-			shellContainer(containers[0])
-
-		case "logs":
-			logsContainer(containers[0])
-
-		case "list":
-			for _, container := range containers {
-				fmt.Printf("Container ID: %s, Name: %s\n", container.id, container.name)
-			}
-
-		default:
-			fmt.Println("Unknown command:", args[1])
-		}
-	*/
 }
 
-func getRunningContainers() []Container {
+func getRunningItems() []Items {
 
 	cmd := exec.Command("docker", "ps", "--format", "{{.ID}} {{.Names}}")
 
-	var containers []Container
+	var containers []Items
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
@@ -210,7 +200,7 @@ func getRunningContainers() []Container {
 		itemFormated := strings.Split(item, " ")
 
 		if len(itemFormated) == 2 {
-			containers = append(containers, Container{
+			containers = append(containers, Items{
 				id:   itemFormated[0],
 				name: itemFormated[1],
 			})
@@ -221,7 +211,7 @@ func getRunningContainers() []Container {
 
 }
 
-func commandContainer(container Container, command string) {
+func commandItems(container Items, command string) {
 
 	fmt.Printf("running docker %s \n", command)
 
@@ -241,7 +231,7 @@ func commandContainer(container Container, command string) {
 	fmt.Println(out.String())
 }
 
-func logsContainer(container Container) {
+func logsItems(container Items) {
 	cmd := exec.Command("docker", "logs", "--follow", container.id)
 
 	cmd.Stdin = os.Stdin
@@ -271,7 +261,7 @@ func logsContainer(container Container) {
 
 }
 
-func shellContainer(container Container) {
+func shellItems(container Items) {
 	cmd := exec.Command("docker", "exec", "-it", container.id, "/bin/sh")
 
 	cmd.Stdin = os.Stdin
