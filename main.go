@@ -11,7 +11,7 @@ import (
 
 	//	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	//	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss"
 
 	"os/signal"
 	"syscall"
@@ -21,6 +21,11 @@ type model struct {
 	items         []Container // items on the to-do list
 	cursor        int         // which to-do list item our cursor is pointing at
 	item_selected Container
+
+	// lipgloss styles and dimentions
+	width  int
+	height int
+	styles *Styles
 }
 
 type Container struct {
@@ -28,12 +33,31 @@ type Container struct {
 	name string
 }
 
+type Styles struct {
+	BorderColor lipgloss.Color
+}
+
+func DefaultStyles() *Styles {
+	s := new(Styles)
+	s.BorderColor = lipgloss.Color("36")
+
+	return s
+}
+
+func initialModel(containers []Container) model {
+
+	// get all the current running containers
+	styles := DefaultStyles()
+	return model{items: containers, styles: styles}
+}
+
+/*
 func initialModel() model {
 	return model{
-		// get all the current running containers
 		items: getRunningContainers(),
 	}
 }
+*/
 
 func (m model) Init() tea.Cmd {
 	// Just return `nil`, which means "no I/O right now, please."
@@ -41,8 +65,12 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
 
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	// Is it a key press?
 	case tea.KeyMsg:
 
@@ -74,13 +102,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Return the updated model to the Bubble Tea runtime for processing.
 	// Note that we're not returning a command.
-	return m, nil
+	return m, cmd
 }
 
 func (m model) View() string {
 
 	// The header
-	s := "What should we buy at the market?\n\n"
+	s := "Docker-Tui\n\n"
 
 	s += fmt.Sprintf("Container selected %s \n\n", m.item_selected.name)
 
@@ -101,12 +129,26 @@ func (m model) View() string {
 	s += "\nPress q to quit.\n"
 
 	// Send the UI for rendering
-	return s
+
+return lipgloss.NewStyle().
+    Border(lipgloss.RoundedBorder(), true, true, true, true).
+    BorderForeground(lipgloss.Color("288")).
+    Padding(3).
+    Margin(2).
+    Width(m.width - 6).
+    Height(m.height -12).
+    Render(
+      s,
+    )
+
+
 }
 
 func main() {
 
-	p := tea.NewProgram(initialModel())
+	containers := getRunningContainers()
+
+	p := tea.NewProgram(initialModel(containers), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
