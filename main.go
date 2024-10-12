@@ -108,9 +108,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 
 	// The header
-	s := "Docker-Tui\n\n"
+	header := "Docker-TUI"
+	padding := (m.width - len(header)) / 2
 
-	s += fmt.Sprintf("Container selected %s \n\n", m.item_selected.name)
+	if padding < 0 {
+		padding = 0
+	}
+
+	content := fmt.Sprintf("%s%s\n\n", strings.Repeat(" ", padding), header)
+
+	content += fmt.Sprintf("Container selected %s \n\n", m.item_selected.name)
 
 	// Iterate over our choices
 	for i, choice := range m.items {
@@ -122,26 +129,22 @@ func (m model) View() string {
 		}
 
 		// Render the row
-		s += fmt.Sprintf("%s %s\n", cursor, choice.name)
+		content += fmt.Sprintf("%s %s\n", cursor, choice.name)
 	}
 
 	// The footer
-	s += "\nPress q to quit.\n"
+	content += "\nPress q to quit.\n"
 
 	// Send the UI for rendering
 
-return lipgloss.NewStyle().
-    Border(lipgloss.RoundedBorder(), true, true, true, true).
-    BorderForeground(lipgloss.Color("288")).
-    Padding(3).
-    Margin(2).
-    Width(m.width - 6).
-    Height(m.height -12).
-    Render(
-      s,
-    )
-
-
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder(), true, true, true, true).
+		BorderForeground(lipgloss.Color("32")).
+		Padding(2).
+		Margin(2).
+		Width(m.width - 6).
+		Height(m.height - 12).
+		Render(content)
 }
 
 func main() {
