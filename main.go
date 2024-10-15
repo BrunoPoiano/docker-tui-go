@@ -28,13 +28,20 @@ type model struct {
 	item_selected Items
 	action        string
 	loading       bool
-	logs          string
+	logs          Logs
 
 	// lipgloss styles and dimention
 	width  int
 	height int
 	styles *Styles
 }
+
+type Logs struct {
+	logs        string
+	logsPages   []string
+	currentPage int
+}
+
 type Styles struct {
 	BorderColor lipgloss.Color
 }
@@ -97,10 +104,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
+		// Move to the next log page
+		case "l":
+			if m.logs.currentPage < len(m.logs.logsPages)-1 {
+				m.logs.currentPage++
+
+				return m, cmd
+			}
+
+		// Move to the previous log page
+		case "h":
+			if m.logs.currentPage > 0 {
+				m.logs.currentPage--
+
+				return m, cmd
+			}
+
 			//Send user to menu lista
 		case "m":
 			m.cursor = 0
 			m.action = ""
+			m.logs.logs = ""
+
+			m.logs.currentPage = 0
 			m.item_selected = Items{}
 			m.items = getMenuItems()
 
@@ -112,26 +138,48 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "shell", "logs", "stop", "list":
 				m.action = m.items[m.cursor].id
 				m.items = getRunningItems()
-        m.cursor = 0
+				m.cursor = 0
+
 			default:
 				m.item_selected = m.items[m.cursor]
 			}
 		}
 
 		if m.action == "logs" && m.item_selected != (Items{}) {
-			m.logs = "" // Reset logs
+			m.logs.logs = "" // Reset logs
 			m.loading = true
-			// Fetch the logs asynchronously
-			go func() {
-				m.logs = fetchLogs(m.item_selected)
-				m.loading = false
-			}()
+			cmd = fetchLogsCmd(m.item_selected)
+		}
+
+		// Handle fetched logs message
+
+	case logsFetchedMsg:
+		// Once logs are fetched, update the model with the logs
+		m.logs.logs = msg.logs
+		m.logs.logsPages = splitIntoPages(m.logs.logs)
+		m.loading = false
+
+		if len(m.logs.logsPages) > 0 {
+			m.logs.currentPage = len(m.logs.logsPages) - 1
 		}
 	}
 
-	// Return the updated model to the Bubble Tea runtime for processing.
-	// Note that we're not returning a command.
 	return m, cmd
+}
+
+// fetchLogsCmd will return a command to fetch logs for the given container
+func fetchLogsCmd(container Items) tea.Cmd {
+	return func() tea.Msg {
+		// Fetch logs for the container (single string)
+		logs := fetchLogs(container)
+
+		// Return the logs in a message (as a single string)
+		return logsFetchedMsg{logs: logs}
+	}
+}
+
+type logsFetchedMsg struct {
+	logs string
 }
 
 func (m model) View() string {
@@ -150,7 +198,16 @@ func (m model) View() string {
 	content += fmt.Sprintf("Items selected %s \n\n", m.item_selected.name)
 
 	if m.action == "logs" && m.item_selected != (Items{}) {
-		content += m.logs
+
+		if m.loading {
+			content += "Loading logs..."
+		} else if len(m.logs.logsPages) > 0 {
+			content += m.logs.logsPages[m.logs.currentPage]
+			content += fmt.Sprintf("\n\nPage %d/%d", m.logs.currentPage+1, len(m.logs.logsPages))
+		} else {
+			content += "No available \n"
+		}
+
 	} else {
 
 		// Iterate over our choices
@@ -254,7 +311,24 @@ func fetchLogs(container Items) string {
 		return fmt.Sprintf("Error fetching logs: %v", err)
 	}
 
+	// Split logs into pages based on terminal height
 	return out.String()
+}
+
+func splitIntoPages(logs string) []string {
+	lines := strings.Split(logs, "\n")
+	pageSize := 20 // Define the number of lines per page (adjust this based on terminal height)
+	var pages []string
+
+	for i := 0; i < len(lines); i += pageSize {
+		end := i + pageSize
+		if end > len(lines) {
+			end = len(lines)
+		}
+		pages = append(pages, strings.Join(lines[i:end], "\n"))
+	}
+
+	return pages
 }
 
 func shellItems(container Items) {
