@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"docker-tui-go/fetchLogs"
+	"docker-tui-go/models"
 	"fmt"
 
 	//	"io"
@@ -17,18 +19,15 @@ import (
 	"syscall"
 )
 
-type Items struct {
-	id   string
-	name string
-}
 
 type model struct {
-	items         []Items // items on the to-do list
+	items         []models.Items // items on the to-do list
 	cursor        int     // which to-do list item our cursor is pointing at
-	item_selected Items
+	item_selected models.Items
 	action        string
 	loading       bool
 	logs          Logs
+  debug string
 
 	// lipgloss styles and dimention
 	width  int
@@ -53,19 +52,19 @@ func DefaultStyles() *Styles {
 	return s
 }
 
-func getMenuItems() []Items {
+func getMenuItems() []models.Items {
 
-	menu := []Items{
-		{id: "shell", name: "Shell"},
-		{id: "logs", name: "Logs"},
-		{id: "stop", name: "Stop"},
-		{id: "list", name: "List"},
+	menu := []models.Items{
+		{Id: "shell", Name: "Shell"},
+		{Id: "logs", Name: "Logs"},
+		{Id: "stop", Name: "Stop"},
+		{Id: "list", Name: "List"},
 	}
 
 	return menu
 }
 
-func initialModel(items []Items) model {
+func initialModel(items []models.Items) model {
 	styles := DefaultStyles()
 	return model{items: items, styles: styles}
 }
@@ -82,10 +81,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-	// Is it a key press?
+
+	// get key pressed
 	case tea.KeyMsg:
 
-		// Cool, what was the actual key pressed?
 		switch msg.String() {
 
 		// These keys should exit the program.
@@ -127,16 +126,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.logs.logs = ""
 
 			m.logs.currentPage = 0
-			m.item_selected = Items{}
+			m.item_selected = models.Items{}
 			m.items = getMenuItems()
-
+      m.debug = "m pressed"
 		// The "enter" key and the spacebar toggle
 		// the container selected
 		case "enter", " ":
 
-			switch m.items[m.cursor].id {
+			switch m.items[m.cursor].Id {
 			case "shell", "logs", "stop", "list":
-				m.action = m.items[m.cursor].id
+				m.action = m.items[m.cursor].Id
 				m.items = getRunningItems()
 				m.cursor = 0
 
@@ -145,19 +144,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		if m.action == "logs" && m.item_selected != (Items{}) {
-			m.logs.logs = "" // Reset logs
-			m.loading = true
-			cmd = fetchLogsCmd(m.item_selected)
+		if m.action == "logs" && m.item_selected != (models.Items{}) {
+      m.logs.logs = "" // Reset logs
+	    m.loading = true
+			cmd = fetchLogs.FetchLogsCmd(m.item_selected)
 		}
 
 		// Handle fetched logs message
 
-	case logsFetchedMsg:
+	case models.LogsFetchedMsg:
 		// Once logs are fetched, update the model with the logs
-		m.logs.logs = msg.logs
-		m.logs.logsPages = splitIntoPages(m.logs.logs)
-		m.loading = false
+    m.logs.logs = msg.Logs
+		m.logs.logsPages = fetchLogs.SplitIntoPages(m.logs.logs)
+    m.loading = false
+
 
 		if len(m.logs.logsPages) > 0 {
 			m.logs.currentPage = len(m.logs.logsPages) - 1
@@ -165,21 +165,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
-}
-
-// fetchLogsCmd will return a command to fetch logs for the given container
-func fetchLogsCmd(container Items) tea.Cmd {
-	return func() tea.Msg {
-		// Fetch logs for the container (single string)
-		logs := fetchLogs(container)
-
-		// Return the logs in a message (as a single string)
-		return logsFetchedMsg{logs: logs}
-	}
-}
-
-type logsFetchedMsg struct {
-	logs string
 }
 
 func (m model) View() string {
@@ -195,9 +180,10 @@ func (m model) View() string {
 	content := fmt.Sprintf("%s%s\n\n", strings.Repeat(" ", padding), header)
 
 	content += fmt.Sprintf("action selected %s \n\n", m.action)
-	content += fmt.Sprintf("Items selected %s \n\n", m.item_selected.name)
+	content += fmt.Sprintf("Items selected %s \n\n", m.item_selected.Name)
+	content += fmt.Sprintf("debug %s \n\n", m.debug)
 
-	if m.action == "logs" && m.item_selected != (Items{}) {
+	if m.action == "logs" && m.item_selected != (models.Items{}) {
 
 		if m.loading {
 			content += "Loading logs..."
@@ -220,7 +206,7 @@ func (m model) View() string {
 			}
 
 			// Render the row
-			content += fmt.Sprintf("%s %s\n", cursor, choice.name)
+			content += fmt.Sprintf("%s %s\n", cursor, choice.Name)
 		}
 
 		// The footer
@@ -250,11 +236,11 @@ func main() {
 	}
 }
 
-func getRunningItems() []Items {
+func getRunningItems() []models.Items {
 
 	cmd := exec.Command("docker", "ps", "--format", "{{.ID}} {{.Names}}")
 
-	var containers []Items
+	var containers []models.Items
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
@@ -269,9 +255,9 @@ func getRunningItems() []Items {
 		itemFormated := strings.Split(item, " ")
 
 		if len(itemFormated) == 2 {
-			containers = append(containers, Items{
-				id:   itemFormated[0],
-				name: itemFormated[1],
+			containers = append(containers, models.Items{
+				Id:   itemFormated[0],
+				Name: itemFormated[1],
 			})
 		}
 	}
@@ -280,13 +266,13 @@ func getRunningItems() []Items {
 
 }
 
-func commandItems(container Items, command string) {
+func commandItems(container models.Items, command string) {
 
 	fmt.Printf("running docker %s \n", command)
 
 	fmt.Println(container)
 
-	cmd := exec.Command("docker", command, container.id)
+	cmd := exec.Command("docker", command, container.Id)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -300,39 +286,10 @@ func commandItems(container Items, command string) {
 	fmt.Println(out.String())
 }
 
-func fetchLogs(container Items) string {
-	cmd := exec.Command("docker", "logs", container.id)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
 
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Sprintf("Error fetching logs: %v", err)
-	}
 
-	// Split logs into pages based on terminal height
-	return out.String()
-}
-
-func splitIntoPages(logs string) []string {
-	lines := strings.Split(logs, "\n")
-	pageSize := 20 // Define the number of lines per page (adjust this based on terminal height)
-	var pages []string
-
-	for i := 0; i < len(lines); i += pageSize {
-		end := i + pageSize
-		if end > len(lines) {
-			end = len(lines)
-		}
-		pages = append(pages, strings.Join(lines[i:end], "\n"))
-	}
-
-	return pages
-}
-
-func shellItems(container Items) {
-	cmd := exec.Command("docker", "exec", "-it", container.id, "/bin/sh")
+func shellItems(container models.Items) {
+	cmd := exec.Command("docker", "exec", "-it", container.Id, "/bin/sh")
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
