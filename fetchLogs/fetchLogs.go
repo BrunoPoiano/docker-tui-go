@@ -42,9 +42,9 @@ func fetchLogs(container models.Items) string {
 	return out.String()
 }
 
-func SplitIntoPages(logs string) []string {
+func SplitIntoPages(logs string, height int) []string {
 	lines := strings.Split(logs, "\n")
-	pageSize := 20 // Define the number of lines per page (adjust this based on terminal height)
+	pageSize := height - 15 // Define the number of lines per page (adjust this based on terminal height)
 	var pages []string
 
 	for i := 0; i < len(lines); i += pageSize {

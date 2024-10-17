@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"docker-tui-go/dockerActions"
 	"docker-tui-go/fetchLogs"
 	"docker-tui-go/models"
 	"fmt"
@@ -19,15 +20,14 @@ import (
 	"syscall"
 )
 
-
 type model struct {
 	items         []models.Items // items on the to-do list
-	cursor        int     // which to-do list item our cursor is pointing at
+	cursor        int            // which to-do list item our cursor is pointing at
 	item_selected models.Items
 	action        string
 	loading       bool
 	logs          Logs
-  debug string
+	debug         string
 
 	// lipgloss styles and dimention
 	width  int
@@ -58,6 +58,7 @@ func getMenuItems() []models.Items {
 		{Id: "shell", Name: "Shell"},
 		{Id: "logs", Name: "Logs"},
 		{Id: "stop", Name: "Stop"},
+		{Id: "restart", Name: "Restart"},
 		{Id: "list", Name: "List"},
 	}
 
@@ -72,6 +73,18 @@ func initialModel(items []models.Items) model {
 func (m model) Init() tea.Cmd {
 	// Just return `nil`, which means "no I/O right now, please."
 	return nil
+}
+
+func resetModel(m model) tea.Cmd {
+	return func() tea.Msg {
+		m.cursor = 0
+		m.action = ""
+		m.logs.logs = ""
+		m.logs.currentPage = 0
+		m.item_selected = models.Items{}
+
+		return models.Action{Finished: true}
+	}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -124,17 +137,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursor = 0
 			m.action = ""
 			m.logs.logs = ""
-
 			m.logs.currentPage = 0
 			m.item_selected = models.Items{}
 			m.items = getMenuItems()
-      m.debug = "m pressed"
+
 		// The "enter" key and the spacebar toggle
 		// the container selected
 		case "enter", " ":
 
 			switch m.items[m.cursor].Id {
-			case "shell", "logs", "stop", "list":
+			case "shell", "logs", "stop", "list", "restart":
 				m.action = m.items[m.cursor].Id
 				m.items = getRunningItems()
 				m.cursor = 0
@@ -145,19 +157,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.action == "logs" && m.item_selected != (models.Items{}) {
-      m.logs.logs = "" // Reset logs
-	    m.loading = true
+			m.logs.logs = "" // Reset logs
+			m.loading = true
 			cmd = fetchLogs.FetchLogsCmd(m.item_selected)
 		}
 
-		// Handle fetched logs message
+		switch m.action {
+		case "stop", "restart":
+			if m.item_selected != (models.Items{}) {
+				m.loading = true
+				cmd = dockerActions.CommandItems(m.item_selected, m.action)
+			}
+		}
+
+	case models.Action:
+		m.cursor = 0
+		m.action = ""
+		m.logs.logs = ""
+		m.logs.currentPage = 0
+		m.item_selected = models.Items{}
+		m.items = getMenuItems()
+		m.loading = !msg.Finished
 
 	case models.LogsFetchedMsg:
 		// Once logs are fetched, update the model with the logs
-    m.logs.logs = msg.Logs
-		m.logs.logsPages = fetchLogs.SplitIntoPages(m.logs.logs)
-    m.loading = false
-
+		m.logs.logs = msg.Logs
+		m.logs.logsPages = fetchLogs.SplitIntoPages(m.logs.logs, m.height)
+		m.loading = false
 
 		if len(m.logs.logsPages) > 0 {
 			m.logs.currentPage = len(m.logs.logsPages) - 1
@@ -183,11 +209,11 @@ func (m model) View() string {
 	content += fmt.Sprintf("Items selected %s \n\n", m.item_selected.Name)
 	content += fmt.Sprintf("debug %s \n\n", m.debug)
 
-	if m.action == "logs" && m.item_selected != (models.Items{}) {
+	if m.loading {
+		content += "Loading ... \n"
+	} else if m.action == "logs" && m.item_selected != (models.Items{}) {
 
-		if m.loading {
-			content += "Loading logs..."
-		} else if len(m.logs.logsPages) > 0 {
+		if len(m.logs.logsPages) > 0 {
 			content += m.logs.logsPages[m.logs.currentPage]
 			content += fmt.Sprintf("\n\nPage %d/%d", m.logs.currentPage+1, len(m.logs.logsPages))
 		} else {
@@ -265,28 +291,6 @@ func getRunningItems() []models.Items {
 	return containers
 
 }
-
-func commandItems(container models.Items, command string) {
-
-	fmt.Printf("running docker %s \n", command)
-
-	fmt.Println(container)
-
-	cmd := exec.Command("docker", command, container.Id)
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Error docker %s \n", command)
-		return
-	}
-
-	fmt.Println(out.String())
-}
-
-
 
 func shellItems(container models.Items) {
 	cmd := exec.Command("docker", "exec", "-it", container.Id, "/bin/sh")
