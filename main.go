@@ -1,99 +1,52 @@
 package main
 
 import (
-	"bytes"
-	"docker-tui-go/dockerActions"
+	"docker-tui-go/appActions"
 	"docker-tui-go/fetchLogs"
 	"docker-tui-go/models"
 	"fmt"
 
 	//	"io"
 	"os"
-	"os/exec"
 	"strings"
 
 	//	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-
-	"os/signal"
-	"syscall"
 )
 
-type model struct {
-	items         []models.Items // items on the to-do list
-	cursor        int            // which to-do list item our cursor is pointing at
-	item_selected models.Items
-	action        string
-	loading       bool
-	logs          Logs
-	debug         string
+type Model struct {
+	Items        []models.Items // items on the to-do list
+	Cursor       int            // which to-do list item our cursor is pointing at
+	ItemSelected models.Items
+	Action       string
+	Loading      bool
+	Logs         models.Logs
+	Debug        string
 
 	// lipgloss styles and dimention
-	width  int
-	height int
-	styles *Styles
+	Width  int
+	Height int
+	Styles *models.Styles
 }
 
-type Logs struct {
-	logs        string
-	logsPages   []string
-	currentPage int
+func initialModel(items []models.Items) Model {
+	styles := appActions.DefaultStyles()
+	return Model{Items: items, Styles: styles}
 }
 
-type Styles struct {
-	BorderColor lipgloss.Color
-}
-
-func DefaultStyles() *Styles {
-	s := new(Styles)
-	s.BorderColor = lipgloss.Color("36")
-
-	return s
-}
-
-func getMenuItems() []models.Items {
-
-	menu := []models.Items{
-		{Id: "shell", Name: "Shell"},
-		{Id: "logs", Name: "Logs"},
-		{Id: "stop", Name: "Stop"},
-		{Id: "restart", Name: "Restart"},
-		{Id: "list", Name: "List"},
-	}
-
-	return menu
-}
-
-func initialModel(items []models.Items) model {
-	styles := DefaultStyles()
-	return model{items: items, styles: styles}
-}
-
-func (m model) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	// Just return `nil`, which means "no I/O right now, please."
 	return nil
 }
 
-func resetModel(m model) tea.Cmd {
-	return func() tea.Msg {
-		m.cursor = 0
-		m.action = ""
-		m.logs.logs = ""
-		m.logs.currentPage = 0
-		m.item_selected = models.Items{}
-
-		return models.Action{Finished: true}
-	}
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.Width = msg.Width
+		m.Height = msg.Height
 
 	// get key pressed
 	case tea.KeyMsg:
@@ -104,220 +57,203 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		// The "up" and "k" keys move the cursor up
+		// The "up" and "k" keys move the Cursor up
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			if m.Cursor > 0 {
+				m.Cursor--
 			}
 
-		// The "down" and "j" keys move the cursor down
+		// The "down" and "j" keys move the Cursor down
 		case "down", "j":
-			if m.cursor < len(m.items)-1 {
-				m.cursor++
+			if m.Cursor < len(m.Items)-1 {
+				m.Cursor++
 			}
 
 		// Move to the next log page
 		case "l":
-			if m.logs.currentPage < len(m.logs.logsPages)-1 {
-				m.logs.currentPage++
+			if m.Logs.CurrentPage < len(m.Logs.LogsPages)-1 {
+				m.Logs.CurrentPage++
 
 				return m, cmd
 			}
 
 		// Move to the previous log page
 		case "h":
-			if m.logs.currentPage > 0 {
-				m.logs.currentPage--
+			if m.Logs.CurrentPage > 0 {
+				m.Logs.CurrentPage--
 
 				return m, cmd
 			}
 
+		case "R":
+			m.Action = "restart"
+			m.Items = appActions.GetRunningItems()
+			m.Cursor = 0
+			return m, cmd
+
+		case "I":
+			m.Action = "I"
+			m.Items = appActions.GetRunningItems()
+			m.Cursor = 0
+			return m, cmd
+
+			// Logsss
+		case "S":
+			m.Action = "shell"
+			m.Items = appActions.GetRunningItems()
+			m.Cursor = 0
+			return m, cmd
+
+		case "T":
+			m.Action = "stop"
+			m.Items = appActions.GetRunningItems()
+			m.Cursor = 0
+			return m, cmd
+
+		case "L":
+			m.Action = "logs"
+			m.Items = appActions.GetRunningItems()
+			m.Cursor = 0
+			return m, cmd
+
 			//Send user to menu lista
-		case "m":
-			m.cursor = 0
-			m.action = ""
-			m.logs.logs = ""
-			m.logs.currentPage = 0
-			m.item_selected = models.Items{}
-			m.items = getMenuItems()
+		case "M":
+			m.Cursor = 0
+			m.Action = ""
+			m.Logs.Logs = ""
+			m.Logs.CurrentPage = 0
+			m.ItemSelected = models.Items{}
+			m.Items = appActions.GetMenuItems()
 
 		// The "enter" key and the spacebar toggle
 		// the container selected
 		case "enter", " ":
 
-			switch m.items[m.cursor].Id {
+			switch m.Items[m.Cursor].Id {
 			case "shell", "logs", "stop", "list", "restart":
-				m.action = m.items[m.cursor].Id
-				m.items = getRunningItems()
-				m.cursor = 0
+				m.Action = m.Items[m.Cursor].Id
+				m.Items = appActions.GetRunningItems()
+				m.Cursor = 0
 
 			default:
-				m.item_selected = m.items[m.cursor]
+				m.ItemSelected = m.Items[m.Cursor]
 			}
 		}
 
-		if m.action == "logs" && m.item_selected != (models.Items{}) {
-			m.logs.logs = "" // Reset logs
-			m.loading = true
-			cmd = fetchLogs.FetchLogsCmd(m.item_selected)
+		if m.Action == "logs" && m.ItemSelected != (models.Items{}) {
+			m.Logs.Logs = "" // Reset logs
+			m.Loading = true
+			cmd = fetchLogs.FetchLogsCmd(m.ItemSelected)
 		}
 
-		switch m.action {
+		switch m.Action {
 		case "stop", "restart":
-			if m.item_selected != (models.Items{}) {
-				m.loading = true
-				cmd = dockerActions.CommandItems(m.item_selected, m.action)
+			if m.ItemSelected != (models.Items{}) {
+				m.Loading = true
+				cmd = appActions.CommandItems(m.ItemSelected, m.Action)
 			}
 		}
 
 	case models.Action:
-		m.cursor = 0
-		m.action = ""
-		m.logs.logs = ""
-		m.logs.currentPage = 0
-		m.item_selected = models.Items{}
-		m.items = getMenuItems()
-		m.loading = !msg.Finished
+		m.Cursor = 0
+		m.Action = ""
+		m.Logs.Logs = ""
+		m.Logs.CurrentPage = 0
+		m.ItemSelected = models.Items{}
+		m.Items = appActions.GetMenuItems()
+		m.Loading = !msg.Finished
 
 	case models.LogsFetchedMsg:
 		// Once logs are fetched, update the model with the logs
-		m.logs.logs = msg.Logs
-		m.logs.logsPages = fetchLogs.SplitIntoPages(m.logs.logs, m.height)
-		m.loading = false
+		m.Logs.Logs = msg.Logs
+		m.Logs.LogsPages = fetchLogs.SplitIntoPages(m.Logs.Logs, m.Height)
+		m.Loading = false
 
-		if len(m.logs.logsPages) > 0 {
-			m.logs.currentPage = len(m.logs.logsPages) - 1
+		if len(m.Logs.LogsPages) > 0 {
+			m.Logs.CurrentPage = len(m.Logs.LogsPages) - 1
 		}
 	}
 
 	return m, cmd
 }
 
-func (m model) View() string {
+// lipgloss color cheat sheet
+var colors = []lipgloss.Color{
+	lipgloss.Color("1"), // Red
+	lipgloss.Color("2"), // Green
+	lipgloss.Color("3"), // Yellow
+	lipgloss.Color("4"), // Blue
+	lipgloss.Color("5"), // Magenta
+	lipgloss.Color("6"), // Cyan
+	lipgloss.Color("7"), // White
+}
+
+func (m Model) View() string {
+
+	content := []string{}
 
 	// The header
-	header := "Docker-TUI"
-	padding := (m.width - len(header)) / 2
+	header := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1")).Render("DOCKER-TUI \n\n")
 
-	if padding < 0 {
-		padding = 0
-	}
+	// Header
+	content = append(content, header)
 
-	content := fmt.Sprintf("%s%s\n\n", strings.Repeat(" ", padding), header)
+	// Action, selected item, and debug
+	content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
+	content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Name))
+	content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
 
-	content += fmt.Sprintf("action selected %s \n\n", m.action)
-	content += fmt.Sprintf("Items selected %s \n\n", m.item_selected.Name)
-	content += fmt.Sprintf("debug %s \n\n", m.debug)
-
-	if m.loading {
-		content += "Loading ... \n"
-	} else if m.action == "logs" && m.item_selected != (models.Items{}) {
-
-		if len(m.logs.logsPages) > 0 {
-			content += m.logs.logsPages[m.logs.currentPage]
-			content += fmt.Sprintf("\n\nPage %d/%d", m.logs.currentPage+1, len(m.logs.logsPages))
+	// Loading message
+	if m.Loading {
+		content = append(content, "Loading ... \n")
+	} else if m.Action == "logs" && m.ItemSelected != (models.Items{}) {
+		// Logs view
+		if len(m.Logs.LogsPages) > 0 {
+			content = append(content, m.Logs.LogsPages[m.Logs.CurrentPage])
+			content = append(content, fmt.Sprintf("\n\nPage %d/%d", m.Logs.CurrentPage+1, len(m.Logs.LogsPages)))
 		} else {
-			content += "No available \n"
+			content = append(content, "No available logs \n")
 		}
-
 	} else {
-
-		// Iterate over our choices
-		for i, choice := range m.items {
-
-			// Is the cursor pointing at this choice?
-			cursor := " " // no cursor
-			if m.cursor == i {
-				cursor = ">" // cursor!
+		// Iterating over choices
+		for i, choice := range m.Items {
+			Cursor := " " // no cursor
+			if m.Cursor == i {
+				Cursor = ">" // cursor at this choice!
 			}
-
-			// Render the row
-			content += fmt.Sprintf("%s %s\n", cursor, choice.Name)
+			// Render the row with the Cursor
+			content = append(content, fmt.Sprintf("%s %s\n", Cursor, choice.Name))
 		}
-
-		// The footer
-		content += "\nPress q to quit.\n"
-
 	}
 
+	actions := lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("\n\n\n Menu M | Shell: S | Logs L |Stop T | Restart R | List I")
+	// Footer
+	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit:  q | Up: j | Down: k | Left: h | Right: l \n")
+	content = append(content, actions)
+	content = append(content, footer)
+
+	// Combine content into a single string
+	finalContent := strings.Join(content, "")
+
+	// Render the styled content
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder(), true, true, true, true).
 		BorderForeground(lipgloss.Color("32")).
 		Padding(2).
 		Margin(2).
-		Width(m.width - 6).
-		Height(m.height - 12).
-		Render(content)
+		Width(m.Width).
+		Height(m.Height - 5).
+		Render(finalContent)
 }
 
 func main() {
 
 	//containers := getRunningItemss()
-	menu := getMenuItems()
+	menu := appActions.GetMenuItems()
 
 	p := tea.NewProgram(initialModel(menu), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
-}
-
-func getRunningItems() []models.Items {
-
-	cmd := exec.Command("docker", "ps", "--format", "{{.ID}} {{.Names}}")
-
-	var containers []models.Items
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println("Error:", err)
-		return containers
-	}
-
-	cmdReturn := strings.Split(out.String(), "\n")
-	for _, item := range cmdReturn {
-		itemFormated := strings.Split(item, " ")
-
-		if len(itemFormated) == 2 {
-			containers = append(containers, models.Items{
-				Id:   itemFormated[0],
-				Name: itemFormated[1],
-			})
-		}
-	}
-
-	return containers
-
-}
-
-func shellItems(container models.Items) {
-	cmd := exec.Command("docker", "exec", "-it", container.Id, "/bin/sh")
-
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-signals
-		if err := cmd.Process.Signal(syscall.SIGINT); err != nil {
-			fmt.Println("Error sending signal to Docker process:", err)
-		}
-	}()
-
-	fmt.Println("Running Command")
-
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("Error starting Docker: %s\n", err)
-		return
-	}
-
-	if err := cmd.Wait(); err != nil {
-		fmt.Printf("Error waiting for Docker: %s\n", err)
-	}
-
 }
