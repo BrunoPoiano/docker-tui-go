@@ -14,7 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func CommandItems(container models.Items, command string) tea.Cmd {
+func CommandItem(container models.Items, command string) tea.Cmd {
 
 	return func() tea.Msg {
 
@@ -25,8 +25,7 @@ func CommandItems(container models.Items, command string) tea.Cmd {
 
 		err := cmd.Run()
 		if err != nil {
-			fmt.Printf("Error docker %s \n", command)
-			return models.Action{Error: "Error running Command"}
+      return models.Action{Error: fmt.Sprintf("%v", err), Finished: true}
 		}
 
 		return models.Action{Finished: true}
@@ -46,12 +45,52 @@ func GetMenuItems() []models.Items {
 	menu := []models.Items{
 		{Id: "shell", Name: "Shell"},
 		{Id: "logs", Name: "Logs"},
+		{Id: "start", Name: "Start"},
 		{Id: "stop", Name: "Stop"},
 		{Id: "restart", Name: "Restart"},
 		{Id: "list", Name: "List"},
 	}
 
 	return menu
+}
+
+func GetStoppedItems() []models.Items {
+
+	cmd := exec.Command(
+    "docker", 
+    "ps", 
+    "-a",
+		"--filter",
+		"status=exited",
+		"--filter",
+		"status=created",
+		"--format", 
+    "{{.ID}} {{.Names}}")
+
+	var containers []models.Items
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return containers
+	}
+
+	cmdReturn := strings.Split(out.String(), "\n")
+	for _, item := range cmdReturn {
+		itemFormated := strings.Split(item, " ")
+
+		if len(itemFormated) == 2 {
+			containers = append(containers, models.Items{
+				Id:   itemFormated[0],
+				Name: itemFormated[1],
+			})
+		}
+	}
+
+	return containers
+
 }
 
 func GetRunningItems() []models.Items {

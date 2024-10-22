@@ -40,6 +40,31 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
+func menuActions(m Model, action string) Model {
+	m.Action = action
+	m.Cursor = 0
+
+	switch action {
+	case "start":
+		m.Items = appActions.GetStoppedItems()
+	default:
+		m.Items = appActions.GetRunningItems()
+	}
+
+	return m
+}
+
+func resetMenu(m Model) Model {
+	m.Cursor = 0
+	m.Action = ""
+	m.Logs.Logs = ""
+	m.Logs.CurrentPage = 0
+	m.ItemSelected = models.Items{}
+	m.Items = appActions.GetMenuItems()
+
+	return m
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
@@ -86,46 +111,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "R":
-			m.Action = "restart"
-			m.Items = appActions.GetRunningItems()
-			m.Cursor = 0
+			m = menuActions(m, "restart")
 			return m, cmd
 
 		case "I":
-			m.Action = "I"
-			m.Items = appActions.GetRunningItems()
-			m.Cursor = 0
+			m = menuActions(m, "list")
 			return m, cmd
 
 			// Logsss
+		case "A":
+			m = menuActions(m, "start")
+			return m, cmd
+
 		case "S":
-			m.Action = "shell"
-			m.Items = appActions.GetRunningItems()
-			m.Cursor = 0
+			m = menuActions(m, "shell")
 			return m, cmd
 
 		case "T":
-			m.Action = "stop"
-			m.Items = appActions.GetRunningItems()
-			m.Cursor = 0
+			m = menuActions(m, "stop")
 			return m, cmd
 
 		case "L":
-			m.Action = "logs"
-			m.Items = appActions.GetRunningItems()
-			m.Cursor = 0
+			m = menuActions(m, "logs")
 			return m, cmd
 
 			//Send user to menu lista
 		case "M":
-			m.Cursor = 0
-			m.Action = ""
-			m.Logs.Logs = ""
-			m.Logs.CurrentPage = 0
-			m.ItemSelected = models.Items{}
-			m.Items = appActions.GetMenuItems()
+			m = resetMenu(m)
 
-		// The "enter" key and the spacebar toggle
 		// the container selected
 		case "enter", " ":
 
@@ -133,6 +146,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "shell", "logs", "stop", "list", "restart":
 				m.Action = m.Items[m.Cursor].Id
 				m.Items = appActions.GetRunningItems()
+				m.Cursor = 0
+
+			case "start":
+				m.Action = m.Items[m.Cursor].Id
+				m.Items = appActions.GetStoppedItems()
 				m.Cursor = 0
 
 			default:
@@ -147,20 +165,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch m.Action {
-		case "stop", "restart":
+		case "stop", "restart", "start":
 			if m.ItemSelected != (models.Items{}) {
 				m.Loading = true
-				cmd = appActions.CommandItems(m.ItemSelected, m.Action)
+				cmd = appActions.CommandItem(m.ItemSelected, m.Action)
 			}
 		}
 
 	case models.Action:
-		m.Cursor = 0
-		m.Action = ""
-		m.Logs.Logs = ""
-		m.Logs.CurrentPage = 0
-		m.ItemSelected = models.Items{}
-		m.Items = appActions.GetMenuItems()
+		m = resetMenu(m)
+		m.Debug = msg.Error
 		m.Loading = !msg.Finished
 
 	case models.LogsFetchedMsg:
@@ -226,7 +240,7 @@ func (m Model) View() string {
 		}
 	}
 
-	actions := lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("\n\n\n Menu M | Shell: S | Logs L |Stop T | Restart R | List I")
+	actions := lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("\n\n\n Menu: M | Shell: S | Logs: L | Start: A | Stop: T | Restart: R | List: I")
 	// Footer
 	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit:  q | Up: j | Down: k | Left: h | Right: l \n")
 	content = append(content, actions)
