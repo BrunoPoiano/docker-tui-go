@@ -10,9 +10,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/docker/docker/client"
 	//	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	dockerClient "github.com/docker/docker/client"
 )
 
 type Model struct {
@@ -23,16 +26,16 @@ type Model struct {
 	Loading      bool
 	Logs         models.Logs
 	Debug        string
-
+	cli          *dockerClient.Client
 	// lipgloss styles and dimention
 	Width  int
 	Height int
 	Styles *models.Styles
 }
 
-func initialModel(items []models.Items) Model {
+func initialModel(items []models.Items, cli *dockerClient.Client) Model {
 	styles := appActions.DefaultStyles()
-	return Model{Items: items, Styles: styles}
+  return Model{Items: items, Styles: styles, cli: cli}
 }
 
 func (m Model) Init() tea.Cmd {
@@ -48,7 +51,7 @@ func menuActions(m Model, action string) Model {
 	case "start":
 		m.Items = appActions.GetStoppedItems()
 	default:
-		m.Items = appActions.GetRunningItems()
+		m.Items = appActions.GetRunningItems(m.cli)
 	}
 
 	return m
@@ -145,7 +148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.Items[m.Cursor].Id {
 			case "shell", "logs", "stop", "list", "restart":
 				m.Action = m.Items[m.Cursor].Id
-				m.Items = appActions.GetRunningItems()
+				m.Items = appActions.GetRunningItems(m.cli)
 				m.Cursor = 0
 
 			case "start":
@@ -221,7 +224,7 @@ func (m Model) View() string {
 		{Id: "list", Name: "List: I"},
 	}
 
-  actions := ""
+	actions := ""
 	for _, item := range menu {
 
 		if m.Action == item.Id {
@@ -274,7 +277,6 @@ func (m Model) View() string {
 
 	// Render the styled content
 	return lipgloss.NewStyle().
-    JoinVertical(0.5).
 		Border(lipgloss.RoundedBorder(), true, true, true, true).
 		BorderForeground(lipgloss.Color("1")).
 		Padding(2).
@@ -283,10 +285,14 @@ func (m Model) View() string {
 
 func main() {
 
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		panic(err)
+	}
 	//containers := getRunningItemss()
 	menu := appActions.GetMenuItems()
 
-	p := tea.NewProgram(initialModel(menu), tea.WithAltScreen())
+	p := tea.NewProgram(initialModel(menu, cli),tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)

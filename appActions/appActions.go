@@ -2,6 +2,7 @@ package appActions
 
 import (
 	"bytes"
+	"context"
 	"docker-tui-go/models"
 	"fmt"
 	"os"
@@ -12,6 +13,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	//"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	dockerClient "github.com/docker/docker/client"
 )
 
 func CommandItem(container models.Items, command string) tea.Cmd {
@@ -25,7 +30,7 @@ func CommandItem(container models.Items, command string) tea.Cmd {
 
 		err := cmd.Run()
 		if err != nil {
-      return models.Action{Error: fmt.Sprintf("%v", err), Finished: true}
+			return models.Action{Error: fmt.Sprintf("%v", err), Finished: true}
 		}
 
 		return models.Action{Finished: true}
@@ -57,15 +62,15 @@ func GetMenuItems() []models.Items {
 func GetStoppedItems() []models.Items {
 
 	cmd := exec.Command(
-    "docker", 
-    "ps", 
-    "-a",
+		"docker",
+		"ps",
+		"-a",
 		"--filter",
 		"status=exited",
 		"--filter",
 		"status=created",
-		"--format", 
-    "{{.ID}} {{.Names}}")
+		"--format",
+		"{{.ID}} {{.Names}}")
 
 	var containers []models.Items
 	var out bytes.Buffer
@@ -93,33 +98,23 @@ func GetStoppedItems() []models.Items {
 
 }
 
-func GetRunningItems() []models.Items {
+func GetRunningItems(cli *dockerClient.Client) []models.Items {
 
-	cmd := exec.Command("docker", "ps", "--format", "{{.ID}} {{.Names}}")
+	var containersList []models.Items
+	containers, err := cli.ContainerList(context.Background(), container.ListOptions{})
 
-	var containers []models.Items
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err := cmd.Run()
 	if err != nil {
-		fmt.Println("Error:", err)
-		return containers
+		panic(err)
 	}
 
-	cmdReturn := strings.Split(out.String(), "\n")
-	for _, item := range cmdReturn {
-		itemFormated := strings.Split(item, " ")
-
-		if len(itemFormated) == 2 {
-			containers = append(containers, models.Items{
-				Id:   itemFormated[0],
-				Name: itemFormated[1],
-			})
-		}
+	for _, ctr := range containers {
+		containersList = append(containersList, models.Items{
+			Id:   ctr.ID,
+			Name: ctr.Names[0],
+		})
 	}
 
-	return containers
+	return containersList
 
 }
 
