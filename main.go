@@ -208,14 +208,39 @@ func (m Model) View() string {
 
 	// The header
 	header := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1")).Render("DOCKER-TUI \n\n")
-
 	// Header
 	content = append(content, header)
 
+	menu := []models.Items{
+		{Id: "menu", Name: "Menu: M"},
+		{Id: "shell", Name: "Shell: S"},
+		{Id: "logs", Name: "Logs: L"},
+		{Id: "start", Name: "Start: A"},
+		{Id: "stop", Name: "Stop: T"},
+		{Id: "restart", Name: "Restart: R"},
+		{Id: "list", Name: "List: I"},
+	}
+
+  actions := ""
+	for _, item := range menu {
+
+		if m.Action == item.Id {
+			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(item.Name)
+		} else if m.Action == "" && item.Id == "menu" {
+			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(item.Name)
+		} else {
+			actions += lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render(item.Name)
+		}
+
+		actions += " | "
+	}
+	actions += "\n\n"
+
+	content = append(content, actions)
 	// Action, selected item, and debug
-	content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
-	content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Name))
-	content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
+	//content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
+	//content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Id))
+	//content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
 
 	// Loading message
 	if m.Loading {
@@ -240,10 +265,8 @@ func (m Model) View() string {
 		}
 	}
 
-	actions := lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("\n\n\n Menu: M | Shell: S | Logs: L | Start: A | Stop: T | Restart: R | List: I")
 	// Footer
 	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit:  q | Up: j | Down: k | Left: h | Right: l \n")
-	content = append(content, actions)
 	content = append(content, footer)
 
 	// Combine content into a single string
@@ -251,12 +274,10 @@ func (m Model) View() string {
 
 	// Render the styled content
 	return lipgloss.NewStyle().
+    JoinVertical(0.5).
 		Border(lipgloss.RoundedBorder(), true, true, true, true).
-		BorderForeground(lipgloss.Color("32")).
+		BorderForeground(lipgloss.Color("1")).
 		Padding(2).
-		Margin(2).
-		Width(m.Width).
-		Height(m.Height - 5).
 		Render(finalContent)
 }
 
