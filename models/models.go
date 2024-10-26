@@ -17,6 +17,7 @@ type Styles struct {
 type Items struct {
 	Id   string
 	Name string
+  Command string
 }
 
 type LogsFetchedMsg struct {

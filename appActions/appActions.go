@@ -48,12 +48,12 @@ func DefaultStyles() *models.Styles {
 func GetMenuItems() []models.Items {
 
 	menu := []models.Items{
-		{Id: "shell", Name: "Shell"},
-		{Id: "logs", Name: "Logs"},
-		{Id: "start", Name: "Start"},
-		{Id: "stop", Name: "Stop"},
-		{Id: "restart", Name: "Restart"},
-		{Id: "list", Name: "List"},
+		{Id: "menu", Name: "Menu", Command: "M"},
+		{Id: "shell", Name: "Shell", Command: "S" },
+    {Id: "start", Name: "Start", Command: "A"},
+		{Id: "stop", Name: "Stop", Command: "T"},
+		{Id: "restart", Name: "Restart", Command: "R"},
+    {Id: "list", Name: "List", Command: "I"},
 	}
 
 	return menu

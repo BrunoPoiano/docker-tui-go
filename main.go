@@ -35,7 +35,7 @@ type Model struct {
 
 func initialModel(items []models.Items, cli *dockerClient.Client) Model {
 	styles := appActions.DefaultStyles()
-  return Model{Items: items, Styles: styles, cli: cli}
+	return Model{Items: items, Styles: styles, cli: cli}
 }
 
 func (m Model) Init() tea.Cmd {
@@ -164,7 +164,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.Action == "logs" && m.ItemSelected != (models.Items{}) {
 			m.Logs.Logs = "" // Reset logs
 			m.Loading = true
-			cmd = fetchLogs.FetchLogsCmd(m.ItemSelected)
+			cmd = fetchLogs.FetchLogsCmd(m.cli, m.ItemSelected)
 		}
 
 		switch m.Action {
@@ -214,25 +214,18 @@ func (m Model) View() string {
 	// Header
 	content = append(content, header)
 
-	menu := []models.Items{
-		{Id: "menu", Name: "Menu: M"},
-		{Id: "shell", Name: "Shell: S"},
-		{Id: "logs", Name: "Logs: L"},
-		{Id: "start", Name: "Start: A"},
-		{Id: "stop", Name: "Stop: T"},
-		{Id: "restart", Name: "Restart: R"},
-		{Id: "list", Name: "List: I"},
-	}
+	menu := appActions.GetMenuItems()
 
 	actions := ""
 	for _, item := range menu {
 
+		menuItem := fmt.Sprintf("%s: %s", item.Name, item.Command)
 		if m.Action == item.Id {
-			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(item.Name)
+			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(menuItem)
 		} else if m.Action == "" && item.Id == "menu" {
-			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(item.Name)
+			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(menuItem)
 		} else {
-			actions += lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render(item.Name)
+			actions += lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render(menuItem)
 		}
 
 		actions += " | "
@@ -257,14 +250,14 @@ func (m Model) View() string {
 			content = append(content, "No available logs \n")
 		}
 	} else {
-		// Iterating over choices
-		for i, choice := range m.Items {
+    menuItems := m.Items[1:] // remove first Item from array "menu"
+		for i, choice := range menuItems {
 			Cursor := " " // no cursor
 			if m.Cursor == i {
 				Cursor = ">" // cursor at this choice!
 			}
 			// Render the row with the Cursor
-			content = append(content, fmt.Sprintf("%s %s\n", Cursor, choice.Name))
+      content = append(content, fmt.Sprintf("%s %d: %s\n", Cursor, i, choice.Name))
 		}
 	}
 
@@ -292,7 +285,7 @@ func main() {
 	//containers := getRunningItemss()
 	menu := appActions.GetMenuItems()
 
-	p := tea.NewProgram(initialModel(menu, cli),tea.WithAltScreen())
+	p := tea.NewProgram(initialModel(menu, cli), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
