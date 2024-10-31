@@ -2,6 +2,7 @@ package main
 
 import (
 	"docker-tui-go/appActions"
+	"docker-tui-go/dockerShell"
 	"docker-tui-go/fetchLogs"
 	"docker-tui-go/models"
 	"fmt"
@@ -167,6 +168,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = fetchLogs.FetchLogsCmd(m.cli, m.ItemSelected)
 		}
 
+		if m.Action == "shell" && m.ItemSelected != (models.Items{}) {
+			m.Loading = true
+			cmd = dockerShell.Dockershell(m.cli, m.ItemSelected)
+		}
 		switch m.Action {
 		case "stop", "restart", "start":
 			if m.ItemSelected != (models.Items{}) {
@@ -179,6 +184,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = resetMenu(m)
 		m.Debug = msg.Error
 		m.Loading = !msg.Finished
+
+	case models.ShellFetchMsg:
+		m = resetMenu(m)
+		m.Debug = msg.Error
+		m.Loading = false
 
 	case models.LogsFetchedMsg:
 		// Once logs are fetched, update the model with the logs
@@ -207,6 +217,11 @@ var colors = []lipgloss.Color{
 
 func (m Model) View() string {
 
+  tea.ClearScreen()
+	if m.Action == "shell" && m.ItemSelected != (models.Items{}) {
+		return lipgloss.NewStyle().
+			Render("")
+	}
 	content := []string{}
 
 	// The header
@@ -250,14 +265,14 @@ func (m Model) View() string {
 			content = append(content, "No available logs \n")
 		}
 	} else {
-    menuItems := m.Items[1:] // remove first Item from array "menu"
+		menuItems := m.Items[1:] // remove first Item from array "menu"
 		for i, choice := range menuItems {
 			Cursor := " " // no cursor
 			if m.Cursor == i {
 				Cursor = ">" // cursor at this choice!
 			}
 			// Render the row with the Cursor
-      content = append(content, fmt.Sprintf("%s %d: %s\n", Cursor, i, choice.Name))
+			content = append(content, fmt.Sprintf("%s %d: %s\n", Cursor, i, choice.Name))
 		}
 	}
 

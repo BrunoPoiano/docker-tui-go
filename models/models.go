@@ -1,6 +1,8 @@
 package models
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Items represents a menu item.
 
@@ -15,9 +17,9 @@ type Styles struct {
 }
 
 type Items struct {
-	Id   string
-	Name string
-  Command string
+	Id      string
+	Name    string
+	Command string
 }
 
 type LogsFetchedMsg struct {
@@ -27,4 +29,9 @@ type LogsFetchedMsg struct {
 type Action struct {
 	Finished bool
 	Error    string
+}
+
+type ShellFetchMsg struct {
+	Error    string
+	Finished bool
 }
