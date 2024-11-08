@@ -50,6 +50,7 @@ func GetMenuItems() []models.Items {
 	menu := []models.Items{
 		{Id: "menu", Name: "Menu", Command: "M"},
 		{Id: "shell", Name: "Shell", Command: "S" },
+    {Id: "logs", Name: "Logs", Command: "L"},
     {Id: "start", Name: "Start", Command: "A"},
 		{Id: "stop", Name: "Stop", Command: "T"},
 		{Id: "restart", Name: "Restart", Command: "R"},

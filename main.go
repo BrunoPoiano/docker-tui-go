@@ -217,7 +217,7 @@ var colors = []lipgloss.Color{
 
 func (m Model) View() string {
 
-  tea.ClearScreen()
+	tea.ClearScreen()
 	if m.Action == "shell" && m.ItemSelected != (models.Items{}) {
 		return lipgloss.NewStyle().
 			Render("")
@@ -231,7 +231,7 @@ func (m Model) View() string {
 
 	menu := appActions.GetMenuItems()
 
-	actions := ""
+	actions := "| "
 	for _, item := range menu {
 
 		menuItem := fmt.Sprintf("%s: %s", item.Name, item.Command)
@@ -249,9 +249,9 @@ func (m Model) View() string {
 
 	content = append(content, actions)
 	// Action, selected item, and debug
-	//content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
-	//content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Id))
-	//content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
+	content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
+	content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Name))
+	content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
 
 	// Loading message
 	if m.Loading {
@@ -265,7 +265,11 @@ func (m Model) View() string {
 			content = append(content, "No available logs \n")
 		}
 	} else {
-		menuItems := m.Items[1:] // remove first Item from array "menu"
+
+		menuItems := m.Items
+		if menuItems[0].Id == "menu" {
+			menuItems = m.Items[1:] // remove first Item from array "menu"
+		}
 		for i, choice := range menuItems {
 			Cursor := " " // no cursor
 			if m.Cursor == i {

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/docker/docker/api/types/container"
@@ -16,6 +18,23 @@ import (
 
 func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.Cmd {
 	return func() tea.Msg {
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// Setup signal handling
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			<-sigChan
+			cancel()
+		}()
+
+		cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv)
+		if err != nil {
+			panic(err)
+		}
+
 		// Create exec configuration
 		execConfig := container.ExecOptions{
 			AttachStdin:  true,
@@ -26,7 +45,7 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 		}
 
 		// Create exec instance
-		execID, err := cli.ContainerExecCreate(context.Background(), selectedContainer.Id, execConfig)
+		execID, err := cli.ContainerExecCreate(ctx, selectedContainer.Id, execConfig)
 		if err != nil {
 			return models.ShellFetchMsg{
 				Error:    fmt.Sprintf("Error creating exec: %v", err),
@@ -35,7 +54,7 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 		}
 
 		// Attach to the exec instance
-		resp, err := cli.ContainerExecAttach(context.Background(), execID.ID, container.ExecAttachOptions{
+		resp, err := cli.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{
 			Tty: true,
 		})
 		if err != nil {
@@ -46,89 +65,66 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 		}
 		defer resp.Close()
 
-		// Save terminal state
-		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-		if err != nil {
-			return models.ShellFetchMsg{
-				Error:    fmt.Sprintf("Error setting raw terminal: %v", err),
-				Finished: true,
-			}
-		}
-		defer term.Restore(int(os.Stdin.Fd()), oldState)
-
-		// Create context with cancellation
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		// Create WaitGroup for goroutines
+		// Create a wait group to manage goroutines
 		var wg sync.WaitGroup
 
-		// Create error channel
-		errChan := make(chan error, 2)
-
-		// Start copying from container to stdout
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, err := io.Copy(os.Stdout, resp.Reader)
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		// Start copying from stdin to container
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, err := io.Copy(resp.Conn, os.Stdin)
-			if err != nil {
-				errChan <- err
-			}
-			// Signal cancellation when stdin is closed (e.g., after 'exit' command)
-			cancel()
-		}()
-
-		// Monitor exec status
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					inspect, err := cli.ContainerExecInspect(context.Background(), execID.ID)
-					if err != nil {
-						errChan <- err
-						return
-					}
-					if !inspect.Running {
-						cancel()
-						return
-					}
-				}
-			}
-		}()
-
-		// Wait for completion
-		go func() {
-			wg.Wait()
-			close(errChan)
-		}()
-
-		// Wait for either error or completion
-		select {
-		case err := <-errChan:
-			if err != nil && err != io.EOF {
-				return models.ShellFetchMsg{
-					Error:    fmt.Sprintf("Shell error: %v", err),
-					Finished: true,
-				}
-			}
-		case <-ctx.Done():
-			// Normal termination
+		// Get the terminal settings
+		fd := int(os.Stdin.Fd())
+		oldState, err := term.GetState(fd)
+		if err != nil {
+			fmt.Println("Error getting terminal state:", err)
+			return models.ShellFetchMsg{
+				Error:    fmt.Sprintf("Error creating exec: %v", err),
+				Finished: true,
+			}	
 		}
+		defer term.Restore(fd, oldState)
 
-		// Ensure terminal is restored and return success
-		term.Restore(int(os.Stdin.Fd()), oldState)
+		// Put terminal into raw mode
+		rawState, err := term.MakeRaw(fd)
+		if err != nil {
+			fmt.Println("Error setting raw terminal:", err)
+			return models.ShellFetchMsg{
+				Error:    fmt.Sprintf("Error creating exec: %v", err),
+				Finished: true,
+			}	
+		}
+		defer term.Restore(fd, rawState)
+
+		// Channel to signal when copying is done
+		doneChan := make(chan struct{}, 2)
+
+		// Goroutine for copying container output to stdout
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { doneChan <- struct{}{} }()
+			io.Copy(os.Stdout, resp.Reader)
+		}()
+
+		// Goroutine for copying stdin to container
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { doneChan <- struct{}{} }()
+			io.Copy(resp.Conn, os.Stdin)
+		}()
+
+		// Wait for either context cancellation or copying to finish
+		go func() {
+			// Wait for both copies to finish or context to be cancelled
+			select {
+			case <-ctx.Done():
+				resp.Close()
+			case <-doneChan:
+				// One copy finished, close the connection
+				fmt.Println("Finalizado")
+				resp.Close()
+			}
+		}()
+
+		// Wait for both goroutines to finish
+		wg.Wait()
 		return models.ShellFetchMsg{
 			Finished: true,
 		}
