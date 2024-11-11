@@ -38,14 +38,13 @@ Start the project
 
 Easiest way to start, stop and restart containers 
 
-![App Screenshot](./imgs/menu.mp4)
+![Docker Actions](./imgs/menu.gif)
 
 
 ## Docker Logs
 
 View the paginated logs 
-
-![App Screenshot](./imgs/logs.mp4)
+![Docker Logs](./imgs/logs.gif)
 
 ## FAQ
 
