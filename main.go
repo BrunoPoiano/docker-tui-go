@@ -83,7 +83,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 
 		// These keys should exit the program.
-		case "ctrl+c", "q":
+		case "ctrl+c", "Q":
 			return m, tea.Quit
 
 		// The "up" and "k" keys move the Cursor up
@@ -248,9 +248,9 @@ func (m Model) View() string {
 
 	content = append(content, actions)
 	// Action, selected item, and debug
-	content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
-	content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Name))
-	content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
+	//content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
+	//content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Name))
+	//content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
 
 	// Loading message
 	if m.Loading {
@@ -265,11 +265,7 @@ func (m Model) View() string {
 		}
 	} else {
 
-		menuItems := m.Items
-		if menuItems[0].Id == "menu" {
-			menuItems = m.Items[1:] // remove first Item from array "menu"
-		}
-		for i, choice := range menuItems {
+		for i, choice := range m.Items {
 			Cursor := " " // no cursor
 			if m.Cursor == i {
 				Cursor = ">" // cursor at this choice!
@@ -280,7 +276,7 @@ func (m Model) View() string {
 	}
 
 	// Footer
-	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit:  q | Up: j | Down: k | Left: h | Right: l \n")
+	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit: Q | Up: j | Down: k | Left: h | Right: l \n")
 	content = append(content, footer)
 
 	// Combine content into a single string
