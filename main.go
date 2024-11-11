@@ -266,7 +266,7 @@ func (m Model) View() string {
 	} else {
 
 		for i, choice := range m.Items {
-			Cursor := " " // no cursor
+			Cursor := "" // no cursor
 			if m.Cursor == i {
 				Cursor = ">" // cursor at this choice!
 			}
@@ -276,7 +276,7 @@ func (m Model) View() string {
 	}
 
 	// Footer
-	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit: Q | Up: j | Down: k | Left: h | Right: l \n")
+  footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit: Q | Select: enter | Up: j | Down: k | Left: h | Right: l \n")
 	content = append(content, footer)
 
 	// Combine content into a single string
