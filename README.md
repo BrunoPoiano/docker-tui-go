@@ -5,8 +5,6 @@ Docker-tui is a simple terminal user interface to interact with docker. Writen i
 
 ![App Screenshot](./imgs/Docker-tui.png)
 
-
-
 ## Deploy
 
 Clone the project
@@ -33,13 +31,11 @@ Start the project
   go run .
 ```
 
-
 ## Docker Actions
 
 Easiest way to start, stop and restart containers 
 
 ![Docker Actions](./imgs/menu.gif)
-
 
 ## Docker Logs
 
