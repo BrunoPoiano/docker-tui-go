@@ -1,0 +1,4 @@
+Iniciating terminal process
+Goroutine for copying container output to stdout 
+Goroutine for copying stdin to container 
+Wait for either context cancellation or copying to finish 

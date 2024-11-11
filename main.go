@@ -219,8 +219,7 @@ func (m Model) View() string {
 
 	tea.ClearScreen()
 	if m.Action == "shell" && m.ItemSelected != (models.Items{}) {
-		return lipgloss.NewStyle().
-			Render("")
+		return ""
 	}
 	content := []string{}
 

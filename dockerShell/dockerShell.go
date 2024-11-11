@@ -19,6 +19,13 @@ import (
 func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.Cmd {
 	return func() tea.Msg {
 
+		// create file
+		file, _ := os.Create("file.txt")
+		defer file.Close()
+
+
+			_, err := file.WriteString(fmt.Sprintf("Iniciating terminal process") + "\n")
+
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -29,11 +36,6 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 			<-sigChan
 			cancel()
 		}()
-
-		cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv)
-		if err != nil {
-			panic(err)
-		}
 
 		// Create exec configuration
 		execConfig := container.ExecOptions{
@@ -47,6 +49,8 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 		// Create exec instance
 		execID, err := cli.ContainerExecCreate(ctx, selectedContainer.Id, execConfig)
 		if err != nil {
+
+			_, err := file.WriteString(fmt.Sprintf("Error creating exec: %v", err) + "\n")
 			return models.ShellFetchMsg{
 				Error:    fmt.Sprintf("Error creating exec: %v", err),
 				Finished: true,
@@ -58,6 +62,8 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 			Tty: true,
 		})
 		if err != nil {
+
+			_, err := file.WriteString(fmt.Sprintf("Error attaching to exec: %v", err) + "\n")
 			return models.ShellFetchMsg{
 				Error:    fmt.Sprintf("Error attaching to exec: %v", err),
 				Finished: true,
@@ -65,51 +71,59 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 		}
 		defer resp.Close()
 
-		// Create a wait group to manage goroutines
-		var wg sync.WaitGroup
-
 		// Get the terminal settings
 		fd := int(os.Stdin.Fd())
 		oldState, err := term.GetState(fd)
 		if err != nil {
-			fmt.Println("Error getting terminal state:", err)
+
+			_, err := file.WriteString(fmt.Sprintf("Error getting terminal state:", err) + "\n")
 			return models.ShellFetchMsg{
-				Error:    fmt.Sprintf("Error creating exec: %v", err),
+				Error:    fmt.Sprintf("Error attaching to exec: %v", err),
 				Finished: true,
-			}	
+			}
 		}
 		defer term.Restore(fd, oldState)
 
 		// Put terminal into raw mode
 		rawState, err := term.MakeRaw(fd)
 		if err != nil {
-			fmt.Println("Error setting raw terminal:", err)
+
+			_, err := file.WriteString(fmt.Sprintf("Error setting raw terminal:", err) + "\n")
 			return models.ShellFetchMsg{
-				Error:    fmt.Sprintf("Error creating exec: %v", err),
+				Error:    fmt.Sprintf("Error setting raw terminal: %v", err),
 				Finished: true,
-			}	
+			}
 		}
 		defer term.Restore(fd, rawState)
 
 		// Channel to signal when copying is done
 		doneChan := make(chan struct{}, 2)
+		// Create a wait group to manage goroutines
+		var wg sync.WaitGroup
 
+
+
+		file.WriteString(fmt.Sprintf("Goroutine for copying container output to stdout \n"))
 		// Goroutine for copying container output to stdout
 		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			defer func() { doneChan <- struct{}{} }()
 			io.Copy(os.Stdout, resp.Reader)
+      defer wg.Done()
 		}()
 
+
+		file.WriteString(fmt.Sprintf("Goroutine for copying stdin to container \n"))
 		// Goroutine for copying stdin to container
 		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			defer func() { doneChan <- struct{}{} }()
 			io.Copy(resp.Conn, os.Stdin)
+      defer wg.Done()
 		}()
 
+
+		file.WriteString(fmt.Sprintf("Wait for either context cancellation or copying to finish \n"))
 		// Wait for either context cancellation or copying to finish
 		go func() {
 			// Wait for both copies to finish or context to be cancelled
@@ -118,7 +132,7 @@ func Dockershell(cli *dockerClient.Client, selectedContainer models.Items) tea.C
 				resp.Close()
 			case <-doneChan:
 				// One copy finished, close the connection
-				fmt.Println("Finalizado")
+				//fmt.Println("Finalizado")
 				resp.Close()
 			}
 		}()
