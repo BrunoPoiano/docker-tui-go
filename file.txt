@@ -1,2 +1,0 @@
-Iniciating terminal process
-Error creating exec: Error response from daemon: No such container: menu

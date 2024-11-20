@@ -24,8 +24,9 @@ go.work.sum
 # env file
 .env
 
-file.txta
+file.txt
 
+docker-tui-go
 go.mod
 go.sum 
 main

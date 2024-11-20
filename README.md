@@ -21,7 +21,7 @@ cd to the directory
 Iniciate a new go module
 
 ```bash
-  go mod init main.go
+  go mod init docker-tui-go
 ```
 
 ```bash
@@ -46,7 +46,12 @@ Easiest way to start, stop and restart containers
 
 ![Docker Actions](./imgs/menu.gif)
 
-## Docker Logs
+## Containers List
+
+View the paginated logs 
+![Docker Logs](./imgs/list.png)
+
+## Container Logs
 
 View the paginated logs 
 ![Docker Logs](./imgs/logs.gif)

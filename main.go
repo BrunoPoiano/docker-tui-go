@@ -10,16 +10,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/docker/docker/client"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/docker/docker/client"
 
 	dockerClient "github.com/docker/docker/client"
 )
 
 type Model struct {
-	Items          []models.Items 	
-  Cursor         int            
+	Items          []models.Items
+	Cursor         int
 	ItemSelected   models.Items
 	Action         string
 	Loading        bool
@@ -27,9 +27,9 @@ type Model struct {
 	Logs           models.Logs
 	Debug          string
 	cli            *dockerClient.Client
-	Width  int
-	Height int
-	Styles *models.Styles
+	Width          int
+	Height         int
+	Styles         *models.Styles
 }
 
 func initialModel(items []models.Items, cli *dockerClient.Client) Model {
@@ -290,7 +290,7 @@ func (m Model) View() string {
 	// Combine content into a single string
 	finalContent := strings.Join(content, "")
 
-  padding := 2
+	padding := 2
 	// Render the styled content
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder(), true, true, true, true).
