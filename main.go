@@ -7,12 +7,10 @@ import (
 	"docker-tui-go/models"
 	"fmt"
 
-	//	"io"
 	"os"
 	"strings"
 
 	"github.com/docker/docker/client"
-	//	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -20,8 +18,8 @@ import (
 )
 
 type Model struct {
-	Items          []models.Items // items on the to-do list
-	Cursor         int            // which to-do list item our cursor is pointing at
+	Items          []models.Items 	
+  Cursor         int            
 	ItemSelected   models.Items
 	Action         string
 	Loading        bool
@@ -29,7 +27,6 @@ type Model struct {
 	Logs           models.Logs
 	Debug          string
 	cli            *dockerClient.Client
-	// lipgloss styles and dimention
 	Width  int
 	Height int
 	Styles *models.Styles
@@ -41,7 +38,6 @@ func initialModel(items []models.Items, cli *dockerClient.Client) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	// Just return `nil`, which means "no I/O right now, please."
 	return nil
 }
 

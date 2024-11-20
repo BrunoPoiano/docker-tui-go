@@ -18,6 +18,15 @@ cd to the directory
 ```bash
   cd docker-tui-go
 ```
+Iniciate a new go module
+
+```bash
+  go mod init main.go
+```
+
+```bash
+  go mod tidy
+```
 
 Compile packages and dependencies
 
