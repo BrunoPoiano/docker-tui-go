@@ -20,14 +20,15 @@ import (
 )
 
 type Model struct {
-	Items        []models.Items // items on the to-do list
-	Cursor       int            // which to-do list item our cursor is pointing at
-	ItemSelected models.Items
-	Action       string
-	Loading      bool
-	Logs         models.Logs
-	Debug        string
-	cli          *dockerClient.Client
+	Items          []models.Items // items on the to-do list
+	Cursor         int            // which to-do list item our cursor is pointing at
+	ItemSelected   models.Items
+	Action         string
+	Loading        bool
+	LoadingMessage string
+	Logs           models.Logs
+	Debug          string
+	cli            *dockerClient.Client
 	// lipgloss styles and dimention
 	Width  int
 	Height int
@@ -176,7 +177,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "stop", "restart", "start":
 			if m.ItemSelected != (models.Items{}) {
 				m.Loading = true
+				m.LoadingMessage = fmt.Sprintf("%sing %s", m.Action, m.ItemSelected.Name)
 				cmd = appActions.CommandItem(m.ItemSelected, m.Action)
+
 			}
 		}
 
@@ -255,6 +258,9 @@ func (m Model) View() string {
 	// Loading message
 	if m.Loading {
 		content = append(content, "Loading ... \n")
+
+    loadingMessage := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1")).Render(m.LoadingMessage)
+		content = append(content, loadingMessage + " \n\n")
 	} else if m.Action == "logs" && m.ItemSelected != (models.Items{}) {
 		// Logs view
 		if len(m.Logs.LogsPages) > 0 {
@@ -276,7 +282,7 @@ func (m Model) View() string {
 	}
 
 	// Footer
-  footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit: Q | Select: enter | Up: j | Down: k | Left: h | Right: l \n")
+	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit: Q | Select: enter | Up: j | Down: k | Left: h | Right: l \n")
 	content = append(content, footer)
 
 	// Combine content into a single string

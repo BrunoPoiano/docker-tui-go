@@ -5,11 +5,8 @@ import (
 	"context"
 	"docker-tui-go/models"
 	"fmt"
-	"os"
 	"os/exec"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -119,32 +116,3 @@ func GetRunningItems(cli *dockerClient.Client) []models.Items {
 
 }
 
-func ShellItems(container models.Items) {
-	cmd := exec.Command("docker", "exec", "-it", container.Id, "/bin/sh")
-
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-signals
-		if err := cmd.Process.Signal(syscall.SIGINT); err != nil {
-			fmt.Println("Error sending signal to Docker process:", err)
-		}
-	}()
-
-	fmt.Println("Running Command")
-
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("Error starting Docker: %s\n", err)
-		return
-	}
-
-	if err := cmd.Wait(); err != nil {
-		fmt.Printf("Error waiting for Docker: %s\n", err)
-	}
-
-}
