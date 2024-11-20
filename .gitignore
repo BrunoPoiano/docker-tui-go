@@ -24,4 +24,8 @@ go.work.sum
 # env file
 .env
 
-file.txt
+file.txta
+
+go.mod
+go.sum 
+main
