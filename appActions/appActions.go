@@ -46,12 +46,12 @@ func GetMenuItems() []models.Items {
 
 	menu := []models.Items{
 		{Id: "menu", Name: "Menu", Command: "M"},
-		{Id: "shell", Name: "Shell", Command: "S" },
-    {Id: "logs", Name: "Logs", Command: "L"},
-    {Id: "start", Name: "Start", Command: "A"},
+		{Id: "shell", Name: "Shell", Command: "S"},
+		{Id: "logs", Name: "Logs", Command: "L"},
+		{Id: "start", Name: "Start", Command: "A"},
 		{Id: "stop", Name: "Stop", Command: "T"},
 		{Id: "restart", Name: "Restart", Command: "R"},
-    {Id: "list", Name: "List", Command: "I"},
+		{Id: "list", Name: "List", Command: "I"},
 	}
 
 	return menu
@@ -116,3 +116,55 @@ func GetRunningItems(cli *dockerClient.Client) []models.Items {
 
 }
 
+func GetAllContainers(cli *dockerClient.Client, appWidth int) []models.Items {
+
+	var containersList []models.Items
+	containers, err := cli.ContainerList(context.Background(), container.ListOptions{All: true})
+
+	width := 105
+	if appWidth < 105 {
+		// appWidth - appPadding / ( two columns, Id, name) - third column, status
+		width = (appWidth-2)/2 - 10
+	} else {
+		width = (105-2)/2 - 10
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	header := models.Items{Id: "0", Name: getHeader(width)}
+	containersList = append(containersList, header)
+
+	for _, ctr := range containers {
+
+		status := "Running"
+		if strings.Contains(ctr.Status, "Exited") {
+			status = "Exited"
+		}
+
+		name := truncateWithEllipsis(ctr.Names[0], width)
+		image := truncateWithEllipsis(ctr.Image, width)
+
+		row := fmt.Sprintf("%-*s | %-*s | %s", width, name, width, image, status)
+		containersList = append(containersList, models.Items{
+			Id:   ctr.ID,
+			Name: row,
+		})
+	}
+
+	return containersList
+
+}
+
+func getHeader(width int) string {
+
+	return fmt.Sprintf("%-*s | %-*s | Status", width, "Id", width, "Image")
+}
+
+func truncateWithEllipsis(s string, width int) string {
+	if len(s) > width {
+		return s[:width-3] + "..." // Truncate and add "..."
+	}
+	return s
+}

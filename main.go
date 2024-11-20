@@ -52,6 +52,8 @@ func menuActions(m Model, action string) Model {
 	switch action {
 	case "start":
 		m.Items = appActions.GetStoppedItems()
+	case "list":
+		m.Items = appActions.GetAllContainers(m.cli, m.Width)
 	default:
 		m.Items = appActions.GetRunningItems(m.cli)
 	}
@@ -148,9 +150,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter", " ":
 
 			switch m.Items[m.Cursor].Id {
-			case "shell", "logs", "stop", "list", "restart":
+			case "shell", "logs", "stop", "restart":
 				m.Action = m.Items[m.Cursor].Id
 				m.Items = appActions.GetRunningItems(m.cli)
+				m.Cursor = 0
+
+			case "list":
+				m.Action = m.Items[m.Cursor].Id
+				m.Items = appActions.GetAllContainers(m.cli, m.Width)
 				m.Cursor = 0
 
 			case "start":
@@ -250,17 +257,17 @@ func (m Model) View() string {
 	actions += "\n\n"
 
 	content = append(content, actions)
-	// Action, selected item, and debug
 	//content = append(content, fmt.Sprintf("action selected %s \n\n", m.Action))
 	//content = append(content, fmt.Sprintf("Items selected %s \n\n", m.ItemSelected.Name))
 	//content = append(content, fmt.Sprintf("debug %s \n\n", m.Debug))
+	//content = append(content, fmt.Sprintf("width %d \n\n", m.Width))
 
 	// Loading message
 	if m.Loading {
-		content = append(content, "Loading ... \n")
+		content = append(content, "Loading ... \n\n")
 
-    loadingMessage := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1")).Render(m.LoadingMessage)
-		content = append(content, loadingMessage + " \n\n")
+		loadingMessage := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1")).Render(m.LoadingMessage)
+		content = append(content, loadingMessage+" \n\n")
 	} else if m.Action == "logs" && m.ItemSelected != (models.Items{}) {
 		// Logs view
 		if len(m.Logs.LogsPages) > 0 {
@@ -270,10 +277,9 @@ func (m Model) View() string {
 			content = append(content, "No available logs \n")
 		}
 	} else {
-
 		for i, choice := range m.Items {
 			Cursor := "" // no cursor
-			if m.Cursor == i {
+			if m.Cursor == i && m.Action != "list" {
 				Cursor = ">" // cursor at this choice!
 			}
 			// Render the row with the Cursor
@@ -288,11 +294,13 @@ func (m Model) View() string {
 	// Combine content into a single string
 	finalContent := strings.Join(content, "")
 
+  padding := 2
 	// Render the styled content
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder(), true, true, true, true).
 		BorderForeground(lipgloss.Color("1")).
-		Padding(2).
+		Padding(padding).
+		Width(m.Width - padding).
 		Render(finalContent)
 }
 
