@@ -1,7 +1,7 @@
 
 # Docker-TUI
 
-Docker-tui is a simple terminal user interface to interact with docker. Writen in [Go](https://golang.org/) and [Bubbletea](https://github.com/charmbracelet/bubbletea) 🐳
+Docker-tui is a simple terminal user interface to interact with docker. Writen in [Go](https://golang.org/) and [Bubbletea](https://github.com/charmbracelet/bubbletea)
 
 ![App Screenshot](./imgs/Docker-tui.png)
 
