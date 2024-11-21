@@ -133,7 +133,8 @@ func GetAllContainers(cli *dockerClient.Client, appWidth int) []models.Items {
 		panic(err)
 	}
 
-	header := models.Items{Id: "0", Name: getHeader(width)}
+  headerString := fmt.Sprintf("%-*s | %-*s | Status", width, "Id", width, "Image")
+	header := models.Items{Id: "-", Name: headerString}
 	containersList = append(containersList, header)
 
 	for _, ctr := range containers {
@@ -143,8 +144,8 @@ func GetAllContainers(cli *dockerClient.Client, appWidth int) []models.Items {
 			status = "Exited"
 		}
 
-		name := truncateWithEllipsis(ctr.Names[0], width)
-		image := truncateWithEllipsis(ctr.Image, width)
+		name := TruncateWithEllipsis(ctr.Names[0], width)
+		image := TruncateWithEllipsis(ctr.Image, width)
 
 		row := fmt.Sprintf("%-*s | %-*s | %s", width, name, width, image, status)
 		containersList = append(containersList, models.Items{
@@ -157,12 +158,7 @@ func GetAllContainers(cli *dockerClient.Client, appWidth int) []models.Items {
 
 }
 
-func getHeader(width int) string {
-
-	return fmt.Sprintf("%-*s | %-*s | Status", width, "Id", width, "Image")
-}
-
-func truncateWithEllipsis(s string, width int) string {
+func TruncateWithEllipsis(s string, width int) string {
 	if len(s) > width {
 		return s[:width-3] + "..." // Truncate and add "..."
 	}

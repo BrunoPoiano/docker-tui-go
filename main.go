@@ -210,17 +210,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// lipgloss color cheat sheet
-var colors = []lipgloss.Color{
-	lipgloss.Color("1"), // Red
-	lipgloss.Color("2"), // Green
-	lipgloss.Color("3"), // Yellow
-	lipgloss.Color("4"), // Blue
-	lipgloss.Color("5"), // Magenta
-	lipgloss.Color("6"), // Cyan
-	lipgloss.Color("7"), // White
-}
-
 func (m Model) View() string {
 
 	tea.ClearScreen()
@@ -236,19 +225,19 @@ func (m Model) View() string {
 
 	menu := appActions.GetMenuItems()
 
-	actions := "| "
+	actions := "|"
 	for _, item := range menu {
 
-		menuItem := fmt.Sprintf("%s: %s", item.Name, item.Command)
+		menuItem := fmt.Sprintf(" %s: %s ", item.Name, item.Command)
 		if m.Action == item.Id {
-			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(menuItem)
+			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("#FFFFFF")).Render(menuItem)
 		} else if m.Action == "" && item.Id == "menu" {
-			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("7")).Render(menuItem)
+			actions += lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("1")).Foreground(lipgloss.Color("#FFFFFF")).Render(menuItem)
 		} else {
 			actions += lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render(menuItem)
 		}
 
-		actions += " | "
+		actions += "|"
 	}
 	actions += "\n\n"
 
@@ -284,7 +273,27 @@ func (m Model) View() string {
 	}
 
 	// Footer
-	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render("\n Quit: Q | Select: enter | Up: j | Down: k | Left: h | Right: l \n")
+	width := 10
+
+	footerItems := []models.FooterItem{
+		{Label: "Quit", Action: "Q"},
+		{Label: "Select", Action: "enter"},
+		{Label: "Up", Action: "k"},
+		{Label: "Down", Action: "j"},
+		{Label: "Left/PgDn", Action: "h"},
+		{Label: "Right/PgUp", Action: "l"},
+	}
+
+	footerString := "\n\n"
+	for index, item := range footerItems {
+		footerString += fmt.Sprintf("%-*s %-*s", width, item.Label, width, item.Action)
+
+		if index%2 != 0 {
+			footerString += "\n"
+		}
+	}
+
+	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("#9e9e9e")).Render(footerString)
 	content = append(content, footer)
 
 	// Combine content into a single string

@@ -21,7 +21,7 @@ cd to the directory
 Iniciate a new go module
 
 ```bash
-  go mod init docker-tui-go
+  go mod init docker-tui
 ```
 
 ```bash

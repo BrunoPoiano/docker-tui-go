@@ -35,3 +35,8 @@ type ShellFetchMsg struct {
 	Error    string
 	Finished bool
 }
+
+type FooterItem struct {
+    Label  string
+    Action string
+}
